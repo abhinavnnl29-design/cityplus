@@ -1,0 +1,18 @@
+# Netlify Configuration File
+# SIH Problem Statement 26124: Mobile Urban Intelligence Platform
+
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+
+# Single Page Application / Static Redirects
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

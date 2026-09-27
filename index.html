@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>City Pulse | AI-Powered Urban Intelligence</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet CSS & JS for Interactive Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header class="top-nav">
+        <div class="nav-brand">
+            <button class="mobile-menu-toggle" id="btn-mobile-menu" aria-label="Toggle Menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <div class="brand-logo-wrapper">
+                <img src="logo.jpg" alt="City Pulse Logo" class="brand-logo-img">
+            </div>
+            <div class="brand-text">
+                <h1>City Pulse</h1>
+            </div>
+        </div>
+
+        <div class="nav-actions">
+            <button id="btn-open-muni-portal" class="btn btn-primary btn-compact">
+                <i class="fa-solid fa-building-columns"></i> <span>Municipal Command Portal</span>
+            </button>
+            <button id="btn-trigger-verification" class="btn btn-outline btn-compact">
+                <i class="fa-solid fa-clipboard-check"></i> <span>Field PWA Audit</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main OS Dashboard Layout -->
+    <div class="app-container">
+
+        <!-- Sidebar Navigation & Control Panel (Responsive Drawer on Mobile) -->
+        <aside class="sidebar" id="sidebar-drawer">
+            <div class="sidebar-header mobile-only">
+                <h3><i class="fa-solid fa-sliders"></i> City Pulse Controls</h3>
+                <button class="drawer-close-btn" id="btn-close-drawer">&times;</button>
+            </div>
+
+            <!-- City Network Switcher -->
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-city"></i> Select City Network</h3>
+                <select id="select-city-network" class="city-selector-dropdown">
+                    <option value="JAIPUR" selected>🏙️ Jaipur JCTSL Network (29 Routes, 219 Buses)</option>
+                    <option value="DELHI">🏛️ Delhi DTC & DIMTS Fleet (550+ Routes, 7,600+ Buses)</option>
+                </select>
+            </div>
+
+            <!-- Dynamic Bus Route Selector Filter -->
+            <div class="sidebar-section">
+                <h3 id="routes-section-title"><i class="fa-solid fa-route"></i> Jaipur JCTSL Routes & Hazard Counts</h3>
+                <div class="route-filter-buttons" id="route-buttons-container">
+                    <!-- Rendered dynamically by app.js based on selected city -->
+                </div>
+            </div>
+
+            <!-- Sensing & GIS Layers Toggle -->
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-sliders"></i> Sensing & GIS Layers</h3>
+                <div class="layer-control-group">
+                    <label class="toggle-control">
+                        <input type="checkbox" id="layer-potholes" checked>
+                        <span class="control-indicator color-red"></span>
+                        <span>3D Volumetric Potholes</span>
+                    </label>
+                    <label class="toggle-control">
+                        <input type="checkbox" id="layer-waterlogging" checked>
+                        <span class="control-indicator color-blue"></span>
+                        <span>Waterlogging Dip Zones</span>
+                    </label>
+                    <label class="toggle-control">
+                        <input type="checkbox" id="layer-garbage" checked>
+                        <span class="control-indicator color-amber"></span>
+                        <span>Garbage Dump Accumulation</span>
+                    </label>
+                    <label class="toggle-control">
+                        <input type="checkbox" id="layer-buses" checked>
+                        <span class="control-indicator color-green"></span>
+                        <span>Bus Fleet Telemetry</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Edge Pipeline Config -->
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-microchip"></i> Roboflow AI Model Config</h3>
+                <div class="config-card">
+                    <div class="config-row">
+                        <span>Model ID:</span>
+                        <span class="badge-code green">new-pothole-detection/1</span>
+                    </div>
+                    <div class="config-row">
+                        <span>API Serverless:</span>
+                        <span class="badge-code">serverless.roboflow.com</span>
+                    </div>
+                    <div class="config-row">
+                        <span>IPM Pitch Angle ($\theta$):</span>
+                        <span class="badge-code" id="val-pitch">22.0°</span>
+                    </div>
+                    <div class="config-row">
+                        <span>Camera Height ($h_{\text{cam}}$):</span>
+                        <span class="badge-code">2.4 m</span>
+                    </div>
+                    <div class="config-row">
+                        <span>GTFS Live Endpoint:</span>
+                        <span class="badge-code green" id="gtfs-endpoint-label">otd.delhi.gov.in</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Fleet Stream Feed Switcher -->
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-video"></i> Bus Edge Feeds</h3>
+                <div class="bus-feed-list" id="bus-feeds-container">
+                    <!-- Rendered dynamically by app.js -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Sidebar Mobile Overlay Backdrop -->
+        <div class="sidebar-overlay" id="sidebar-backdrop"></div>
+
+        <!-- Center & Right Workspace -->
+        <main class="main-workspace">
+            
+            <!-- Top Map GIS Grid with Interactive Zoom -->
+            <div class="gis-map-wrapper">
+                <div id="map"></div>
+                
+                <!-- Custom Interactive Zoom & Map Navigation Controls -->
+                <div class="map-zoom-controls">
+                    <button class="map-control-btn" id="btn-zoom-in" title="Zoom In (+)">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <button class="map-control-btn" id="btn-zoom-out" title="Zoom Out (-)">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <button class="map-control-btn" id="btn-reset-view" title="Reset City Center View">
+                        <i class="fa-solid fa-location-crosshairs"></i>
+                    </button>
+                </div>
+
+                <!-- Floating Map Overlay HUD -->
+                <div class="map-hud-overlay">
+                    <div class="hud-item">
+                        <span class="hud-label">Selected Route</span>
+                        <span class="hud-val cyan" id="hud-selected-route">JCTSL Route 1 (Daulatpura)</span>
+                    </div>
+                    <div class="hud-item">
+                        <span class="hud-label">Roboflow Model</span>
+                        <span class="hud-val green"><i class="fa-solid fa-brain"></i> new-pothole-detection/1</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Multi-Tab Analytics Panel -->
+            <div class="analytics-tab-container">
+                <div class="tab-header">
+                    <button class="tab-btn active" data-tab="tab-municipality-portal">
+                        <i class="fa-solid fa-building-columns"></i> <span class="tab-text">Municipal Command Portal</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-live-camera">
+                        <i class="fa-solid fa-camera"></i> <span class="tab-text">Live Roboflow Vision & IPM</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-work-orders">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> <span class="tab-text">City Defect Log</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-anpr-safety">
+                        <i class="fa-solid fa-shield-cat"></i> <span class="tab-text">ANPR & Safety</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-telemetry-log">
+                        <i class="fa-solid fa-terminal"></i> <span class="tab-text">MQTT Stream</span>
+                    </button>
+                </div>
+
+                <div class="tab-content-wrapper">
+
+                    <!-- TAB 0: MUNICIPALITY GOVERNANCE & COMMAND PORTAL -->
+                    <div id="tab-municipality-portal" class="tab-panel active">
+                        <div class="muni-portal-grid">
+                            
+                            <!-- Executive KPI Cards -->
+                            <div class="muni-kpi-row">
+                                <div class="muni-kpi-card">
+                                    <div class="kpi-icon-box red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                                    <div class="kpi-info">
+                                        <span class="kpi-label" id="muni-kpi-title-1">Active Potholes & Defect Tickets</span>
+                                        <h3 class="kpi-val" id="muni-total-incidents">1,428 Incidents</h3>
+                                        <span class="kpi-sub green">↓ 12% vs last month</span>
+                                    </div>
+                                </div>
+
+                                <div class="muni-kpi-card">
+                                    <div class="kpi-icon-box amber"><i class="fa-solid fa-cubes-stacked"></i></div>
+                                    <div class="kpi-info">
+                                        <span class="kpi-label">Est. Cold-Mix Asphalt Repair Budget</span>
+                                        <h3 class="kpi-val amber" id="muni-budget">₹48.60 Lakhs</h3>
+                                        <span class="kpi-sub" id="muni-asphalt-sub">21,130 kg Asphalt Mass</span>
+                                    </div>
+                                </div>
+
+                                <div class="muni-kpi-card">
+                                    <div class="kpi-icon-box blue"><i class="fa-solid fa-hand-holding-hand"></i></div>
+                                    <div class="kpi-info">
+                                        <span class="kpi-label">Contractor DLP Liability Claimed</span>
+                                        <h3 class="kpi-val cyan" id="muni-dlp-claim">₹14.25 Lakhs</h3>
+                                        <span class="kpi-sub green">Auto-debited from Escrow</span>
+                                    </div>
+                                </div>
+
+                                <div class="muni-kpi-card">
+                                    <div class="kpi-icon-box green"><i class="fa-solid fa-circle-check"></i></div>
+                                    <div class="kpi-info">
+                                        <span class="kpi-label">Municipal SLA Compliance Rate</span>
+                                        <h3 class="kpi-val green" id="muni-sla-val">94.2% On-Time</h3>
+                                        <span class="kpi-sub">Target SLA: 90.0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ward Summary & Contractor DLP Matrix -->
+                            <div class="muni-tables-row">
+                                
+                                <!-- Zone Ward Breakdown Card -->
+                                <div class="muni-card">
+                                    <div class="muni-card-header">
+                                        <h4 id="muni-table-title-1"><i class="fa-solid fa-city"></i> Jaipur Municipal Corporation (JMC) Zone Breakdown</h4>
+                                        <button class="btn btn-sm btn-outline" id="btn-export-muni-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF Report</button>
+                                    </div>
+                                    <div class="muni-card-body">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Administrative Zone</th>
+                                                    <th>Active Potholes</th>
+                                                    <th>Waterlogging Dip Zones</th>
+                                                    <th>Asphalt Needed (kg)</th>
+                                                    <th>Zone Priority Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tbody-muni-zones">
+                                                <!-- Populated dynamically based on City -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Contractor DLP & Warranty Liability Panel -->
+                                <div class="muni-card">
+                                    <div class="muni-card-header">
+                                        <h4><i class="fa-solid fa-shield-halved"></i> Contractor Defect Liability Period (DLP) Audit</h4>
+                                        <button class="btn btn-sm btn-primary" id="btn-dispatch-repair"><i class="fa-solid fa-paper-plane"></i> Dispatch Auto Work Orders</button>
+                                    </div>
+                                    <div class="muni-card-body">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Contractor Agency</th>
+                                                    <th>Assigned Route</th>
+                                                    <th>DLP Status</th>
+                                                    <th>Consensus Audit</th>
+                                                    <th>Action Penalty Notice</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tbody-muni-contractors">
+                                                <!-- Populated dynamically based on City -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+                    
+                    <!-- TAB 1: Live Edge Camera & 3D Road Trip Vision Visualizer -->
+                    <div id="tab-live-camera" class="tab-panel">
+                        <div class="camera-visualizer-grid">
+                            <div class="video-feed-box">
+                                <div class="feed-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <span class="telemetry-green-status"><i class="fa-solid fa-circle"></i> ROBOFLOW 3D VISION</span>
+                                        <select id="select-video-trip" style="background:var(--surface-dark); color:var(--text-main); border:1px solid var(--accent-teal); border-radius:4px; padding:4px 8px; font-size:11px; font-weight:bold;">
+                                            <option value="pothole-demo.mp4" selected>🎥 Trip 1: Ring Road Arterial Corridor (Live MP4 Dashcam)</option>
+                                            <option value="trip2">🎥 Trip 2: Ajmeri Gate MI Road Transit Route</option>
+                                            <option value="trip3">🎥 Trip 3: High-Density Pothole Inspection Run</option>
+                                            <option value="custom">📁 Upload Custom Road Photo / Video...</option>
+                                        </select>
+                                        <input type="file" id="input-custom-media" accept="image/*,video/*" style="display:none;">
+                                        <button class="btn btn-sm btn-outline" id="btn-trigger-custom-upload" style="font-size:11px; padding:2px 8px;"><i class="fa-solid fa-upload"></i> Upload</button>
+                                    </div>
+                                    <span class="feed-fps" id="feed-fps-label">14.2ms | 58.4 FPS</span>
+                                </div>
+                                <div class="canvas-wrapper" style="position:relative; width:100%; height:360px; background:#0B0C10; overflow:hidden; border-radius:8px;">
+                                    <!-- Real Road Trip Video Element -->
+                                    <video id="active-trip-video" src="pothole-demo.mp4" autoplay loop muted playsinline style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0.85; z-index:1;"></video>
+                                    <!-- Canvas Bounding Box & 3D IPM Overlay -->
+                                    <canvas id="camera-canvas" width="640" height="360" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; pointer-events:none;"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="ipm-math-card">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                    <h4 style="margin:0;"><i class="fa-solid fa-calculator"></i> IPM Geometry & Sorting Pipeline</h4>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <label style="font-size:11px; color:var(--text-muted);">Sort By:</label>
+                                        <select id="select-ipm-sort" style="background:var(--surface-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:4px; padding:4px 8px; font-size:11px;">
+                                            <option value="distance">Proximity / IPM Distance (Nearest First)</option>
+                                            <option value="severity">Repair Severity (Asphalt Mass kg)</option>
+                                            <option value="confidence">Model Confidence Score (%)</option>
+                                            <option value="id">ByteTrack Target ID</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="ipm-metric-grid">
+                                    <div class="metric-box">
+                                        <span class="m-label">Roboflow 2D BBox</span>
+                                        <span class="m-val" id="ipm-pixel-box">[480, 220, 610, 310] px</span>
+                                    </div>
+                                    <div class="metric-box">
+                                        <span class="m-label">Ground Area ($A_{\text{metric}}$)</span>
+                                        <span class="m-val green" id="ipm-area">0.42 m²</span>
+                                    </div>
+                                    <div class="metric-box">
+                                        <span class="m-label">Depth ($\bar{d}$)</span>
+                                        <span class="m-val" id="ipm-depth">7.2 cm</span>
+                                    </div>
+                                    <div class="metric-box">
+                                        <span class="m-label">Volume ($V$)</span>
+                                        <span class="m-val amber" id="ipm-volume">0.0302 m³</span>
+                                    </div>
+                                    <div class="metric-box full-width">
+                                        <span class="m-label">Cold-Mix Asphalt Needed ($\text{kg} = V \times 2300$)</span>
+                                        <span class="m-val highlight" id="ipm-asphalt">69.55 kg Asphalt</span>
+                                    </div>
+                                </div>
+
+                                <!-- Sorted Live Detections Queue -->
+                                <div style="margin-top:14px; background:var(--surface-dark); border:1px solid var(--border-color); border-radius:6px; padding:10px;">
+                                    <h5 style="margin:0 0 8px 0; color:var(--accent-teal); font-size:12px; display:flex; justify-content:space-between;">
+                                        <span><i class="fa-solid fa-arrow-down-short-wide"></i> Live Sorted Detections Queue</span>
+                                        <span id="ipm-queue-sort-label" style="color:var(--text-muted); font-size:10px;">Sort: Proximity</span>
+                                    </h5>
+                                    <div id="ipm-sorted-queue" style="display:flex; flex-direction:column; gap:6px;">
+                                        <!-- Populated dynamically by app.js -->
+                                    </div>
+                                </div>
+
+                                <div class="shadow-buster-indicator green" id="shadow-status" style="margin-top:10px;">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span>Shadow-Buster Passed: Laplacian Var = 142.6</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: Contractor Warranty & Work Orders -->
+                    <div id="tab-work-orders" class="tab-panel">
+                        <div class="work-orders-table-wrapper">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ticket</th>
+                                        <th>Route</th>
+                                        <th>Hazard Type</th>
+                                        <th>Location & Road</th>
+                                        <th>Contractor / Authority</th>
+                                        <th>Consensus</th>
+                                        <th>Asphalt / Vol</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-work-orders">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: ANPR & Pedestrian Safety -->
+                    <div id="tab-anpr-safety" class="tab-panel">
+                        <div class="safety-grid">
+                            <div class="anpr-card">
+                                <div class="anpr-card-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                                    <h4><i class="fa-solid fa-car-burst"></i> ANPR Hit & Run Tracker Model (AI OCR Active)</h4>
+                                    <button class="btn btn-sm btn-primary" id="btn-simulate-anpr"><i class="fa-solid fa-bolt"></i> Simulate Live Hit & Run Alert</button>
+                                </div>
+                                <div class="anpr-list" id="anpr-list-container">
+                                    <!-- ANPR records rendered dynamically by app.js -->
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h4><i class="fa-solid fa-chart-line"></i> Hourly Traffic Density</h4>
+                                <div class="chart-container">
+                                    <canvas id="chart-traffic-density"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: Live Telemetry MQTT Log -->
+                    <div id="tab-telemetry-log" class="tab-panel">
+                        <div class="terminal-box">
+                            <div class="terminal-header">
+                                <span><i class="fa-solid fa-code"></i> MQTT Edge Stream (Port 1883)</span>
+                                <button id="btn-clear-term" class="btn btn-sm btn-outline">Clear</button>
+                            </div>
+                            <pre id="terminal-log" class="terminal-body"></pre>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Modal Window 1: Field Contractor PWA Verification Portal -->
+    <div class="modal-backdrop" id="modal-pwa">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-clipboard-check"></i> Contractor Field Verification Portal</h3>
+                <button class="modal-close" id="btn-close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="pwa-status-banner green">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span id="pwa-ticket-location">Geofence Verified: Within 3.2m of Ticket WO-JPR-101</span>
+                </div>
+
+                <div class="comparison-grid">
+                    <div class="comp-box">
+                        <span class="comp-title">BEFORE (Route Inspection)</span>
+                        <div class="comp-img-placeholder red-border">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <p id="pwa-before-text">Depth: 7.2cm | Volume: 0.03m³<br>Logged: 2026-08-30</p>
+                        </div>
+                    </div>
+
+                    <div class="comp-box">
+                        <span class="comp-title">AFTER (Contractor Upload)</span>
+                        <div class="comp-img-placeholder green-border">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <p id="pwa-upload-text">Upload Geofenced Photo</p>
+                            <button id="btn-upload-sim" class="btn btn-sm btn-primary" style="margin-top:10px;">Capture Photo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="verification-results" id="pwa-verification-results" style="display:none;">
+                    <div class="res-card green">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <div>
+                            <strong>AI Surface Audit PASSED</strong>
+                            <p>Surface continuity: 98.4% | Leveling: ±0.4cm</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btn-cancel-modal">Close</button>
+                <button class="btn btn-primary" id="btn-submit-pwa-ticket">Submit Proof</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Window 2: ANPR Hit & Run OCR License Plate Details -->
+    <div class="modal-backdrop" id="modal-anpr-details">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-car-burst"></i> ANPR Hit & Run Forensic Audit</h3>
+                <button class="modal-close" id="btn-close-anpr-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="pwa-status-banner red" id="anpr-banner-title">
+                    <i class="fa-solid fa-shield-cat"></i>
+                    <span>TRAFFIC POLICE DISPATCH: High-Speed Collision Incident</span>
+                </div>
+                <div class="config-card">
+                    <div class="config-row"><span>ANPR Record ID:</span><span class="badge-code green" id="anpr-modal-id">ANPR-DEL-903</span></div>
+                    <div class="config-row"><span>License Plate (AI OCR):</span><strong style="color:var(--accent-amber); font-size:16px; font-family:'JetBrains Mono';" id="anpr-modal-plate">DL-10-CA-8891</strong></div>
+                    <div class="config-row"><span>Vehicle Info:</span><span id="anpr-modal-vehicle">Silver Hyundai Creta</span></div>
+                    <div class="config-row"><span>Incident Classification:</span><span style="color:#F472B6;" id="anpr-modal-incident">Hit & Run Collision at Pedestrian Shelter</span></div>
+                    <div class="config-row"><span>Vehicle Speed:</span><span class="badge-code red" id="anpr-modal-speed">82.5 km/h</span></div>
+                    <div class="config-row"><span>Location & GPS:</span><span id="anpr-modal-location">Dhaula Kuan Ring Road (28.5922 N, 77.1617 E)</span></div>
+                    <div class="config-row"><span>Bus Camera Feed Source:</span><span class="badge-code" id="anpr-modal-cam">DTC Bus #DL-1PD-4012 (Front Cam)</span></div>
+                    <div class="config-row"><span>Traffic Police Status:</span><span class="badge-status green"><i class="fa-solid fa-paper-plane"></i> DISPATCHED TO CONTROL ROOM</span></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btn-close-anpr-modal-2">Close Audit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts: Database Engine + App Logic -->
+    <script src="database.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
